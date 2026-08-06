@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 재생성 가능한 모델 산출물 (model_manifest.md/export_model.py로 재생성)
+models/*.pt
+models/*.onnx
+models/openvino/
