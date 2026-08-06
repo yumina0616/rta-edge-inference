@@ -7,3 +7,7 @@ __pycache__/
 models/*.pt
 models/*.onnx
 models/openvino/
+
+# 테스트용 영상(용량 큼, 라이선스 있는 외부 소스) 및 디버그용 미리보기 이미지
+data/videos/
+first_frame_preview.png
