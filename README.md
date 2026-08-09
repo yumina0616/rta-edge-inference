@@ -23,7 +23,7 @@
 
 - [x] YOLOv8n → ONNX export
 - [x] ONNX → OpenVINO FP32 IR 변환
-- [ ] 저장 영상 기반 추론 파이프라인 (진행 중)
+- [x] 저장 영상 기반 추론 파이프라인
 - [ ] INT8 Post-Training Quantization
 - [ ] 벤치마크 자동화
 - [ ] C++ Safety Supervisor
@@ -191,22 +191,19 @@ Phase 1 완료 후 채워질 예정.
 
 ## 실행 방법
 
-현재까지 동작이 확인된 건 모델 export까지다. 전체 파이프라인 재현 커맨드는 M2(저장 영상 추론
-파이프라인) 완료 후 이 섹션에 추가된다.
+현재까지 모델 export와 저장 영상 기반 추론 파이프라인(전처리 → OpenVINO 추론 → 후처리 → JSONL 출력)이 동작 확인됐다. INT8 비교·벤치마크·Safety Supervisor는 이후 단계에서 이 섹션에 추가된다.
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install ultralytics openvino
+pip install ultralytics openvino opencv-python
 
 python src/inference_python/export_model.py
+python src/inference_python/run_pipeline.py <영상 경로>
 ```
 
 ---
 
 ## 한계
 
-본 프로젝트는 항공 인증 또는 DO-178C 준수를 주장하지 않으며, 항공 소프트웨어의 요구사항 기반
-개발·검증 개념을 학습 목적으로 축소 적용한 프로토타입이다. Safety Supervisor는 실제 비행제어를
-수행하지 않으며, 상위 시스템이 참고할 수 있는 안전 상태 요청(HOLD_REQUEST 등)을 출력하는 데
-그친다.
+본 프로젝트는 항공 인증 또는 DO-178C 준수를 주장하지 않으며, 항공 소프트웨어의 요구사항 기반 개발·검증 개념을 학습 목적으로 축소 적용한 프로토타입이다. Safety Supervisor는 실제 비행제어를 수행하지 않으며, 상위 시스템이 참고할 수 있는 안전 상태 요청(HOLD_REQUEST 등)을 출력하는 데 그친다.
