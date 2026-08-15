@@ -1,3 +1,6 @@
+import csv
+from pathlib import Path
+
 from video_reader import read_frames
 from preprocess import preprocess
 from infer import Detector, postprocess
@@ -7,6 +10,7 @@ INT8_IR_PATH = "models/openvino/int8/yolov8n_416.xml"
 COMPARE_VIDEO = "data/videos/14468440_2160_3840_30fps.mp4"
 IOU_MATCH_THRESHOLD = 0.5
 SAMPLE_FRAME_COUNT = 100
+DETECTION_CSV_PATH = "results/raw/fp32_vs_int8_detection_agreement.csv"
 
 def iou(box_a: list[float], box_b: list[float]) -> float:
     ax1, ay1, ax2, ay2 = box_a
@@ -28,8 +32,18 @@ def best_detection(detections: list[dict]) -> dict | None:
         return None
     return max(detections, key=lambda d: d["confidence"])
 
+def write_csv(rows: list[dict], path: str) -> None:
+    if not rows:
+        return
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+        writer.writeheader()
+        writer.writerows(rows)
 
 def compare() -> None:
+    rows = []
+
     fp32_detector = Detector(FP32_IR_PATH)
     int8_detector = Detector(INT8_IR_PATH)
 
@@ -48,12 +62,24 @@ def compare() -> None:
             continue
 
         compared += 1
+
         same_class = fp32_best["class_id"] == int8_best["class_id"]
         overlap = iou(fp32_best["bbox"], int8_best["bbox"])
+        is_matched = same_class and overlap >= IOU_MATCH_THRESHOLD
+        confidence_diff = None
 
-        if same_class and overlap >= IOU_MATCH_THRESHOLD:
+        if is_matched:
             matched += 1
-            confidence_diffs.append(fp32_best["confidence"] - int8_best["confidence"])
+            confidence_diff = fp32_best["confidence"] - int8_best["confidence"]
+            confidence_diffs.append(confidence_diff)
+
+        rows.append({
+            "frame_id": frame_id,
+            "matched": is_matched,
+            "class_match": same_class,
+            "iou": overlap,
+            "confidence_diff": confidence_diff,
+        })
 
     match_rate = matched / compared if compared else 0.0
     avg_confidence_diff = sum(confidence_diffs) / len(confidence_diffs) if confidence_diffs else 0.0
@@ -61,6 +87,8 @@ def compare() -> None:
     print(f"compared frames: {compared}")
     print(f"matched: {matched} ({match_rate:.1%})")
     print(f"avg confidence diff (fp32 - int8): {avg_confidence_diff:.4f}")
+
+    write_csv(rows, DETECTION_CSV_PATH)
 
 if __name__ == "__main__":
     compare()
