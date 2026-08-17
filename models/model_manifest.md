@@ -36,7 +36,25 @@ PyTorch(.pt) --export--> ONNX(.onnx) --OpenVINO Model Conversion--> OpenVINO IR(
 | PyTorch 원본 가중치 | `models/yolov8n.pt` | Ultralytics 공식 배포본 |
 | ONNX 변환본 | `models/yolov8n_416.onnx` | 입력 shape 고정 |
 | OpenVINO IR (FP32) | `models/openvino/fp32/yolov8n_416.xml` (+ `.bin`) | M2 추론 파이프라인에서 사용 |
-| OpenVINO IR (INT8) | `models/openvino/int8/yolov8n_416.xml` (+ `.bin`) | M3에서 생성 예정 |
+| OpenVINO IR (INT8) | `models/openvino/int8/yolov8n_416.xml` (+ `.bin`) | M3에서 NNCF PTQ로 생성 |
+
+## INT8 양자화 (M3)
+
+- **방법**: NNCF(Neural Network Compression Framework) Post-Training Quantization(PTQ),
+  재학습 없이 FP32 IR의 활성값 분포만 관찰해 quantization scale을 계산 (`nncf.quantize()`).
+- **Calibration 데이터**: 저고도 oblique(비스듬한 각도) 드론 영상에서 균등 간격으로 샘플링한
+  300프레임. 배포 시 마주칠 입력 분포와 유사한 소스를 쓰는 것이 원칙이며, 초기의 도메인
+  갭이 컸던 수직(top-down) 항공뷰 영상은 calibration 소스로 쓰지 않았다.
+- **구조 확인**: 입력/출력 텐서 shape이 FP32와 동일(`[1,3,416,416]` → `[1,84,3549]`) — 구조
+  변경 없이 가중치/활성값 표현 방식만 바뀌었음을 확인했고,  `Detector`/
+  `postprocess()`를 코드 수정 없이 그대로 재사용할 수 있다.
+- **정확도 비교 방법**: 정답 라벨링 데이터셋이 없으므로 mAP는 측정하지 않았다. 대신 같은
+  프레임에서 FP32/INT8 각각의 최고 confidence 탐지를 비교해 IoU≥0.5 + class_id 일치 여부를
+  "결과 일치"로 판단하는 **탐지 결과 일치도** 지표를 사용했다 (`results/raw/fp32_vs_int8_detection_agreement.csv`).
+  100프레임 기준 일치율 79.0%, 매칭된 프레임의 평균 confidence 차이(FP32−INT8) -0.0281.
+- **Latency 비교**: warm-up 10회 + 측정 100회 평균 (`results/raw/fp32_vs_int8_latency.csv`).
+  본 개발 환경(Intel CPU)에서 INT8이 FP32 대비 약 50~68% 낮은 평균 latency를 보였다 — 정식
+  percentile/deadline-miss 분석은 M4에서 다룬다.
 
 ## 라이선스
 
